@@ -475,7 +475,7 @@ SOFTWARE.
 
 - 提交 Issue：[GitHub Issues](https://github.com/TheLayya/tiktok-monitor/issues)
 - 邮箱：673105710@qq.com
-- 微信：lly450200
+- 微信：lly450200（找到微信组织）
 
 ---
 

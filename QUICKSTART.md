@@ -143,5 +143,6 @@ docker-compose restart
 ## 需要帮助？
 
 - 查看 [FAQ](README.md#故障排查)
-- 提交 [Issue](https://github.com/your-username/tiktok-monitor/issues)
-- 发送邮件：your-email@example.com
+- 提交 [Issue](https://github.com/TheLayya/tiktok-monitor/issues)
+- 发送邮件：673105710@qq.com
+- 微信：lly450200
