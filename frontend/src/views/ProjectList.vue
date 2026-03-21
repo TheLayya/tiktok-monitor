@@ -1,0 +1,191 @@
+<template>
+  <div class="project-list">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span>项目管理</span>
+          <el-button type="primary" @click="handleCreate">
+            <el-icon><Plus /></el-icon>
+            新建项目
+          </el-button>
+        </div>
+      </template>
+
+      <el-table :data="projects" v-loading="loading">
+        <el-table-column prop="name" label="项目名称" />
+        <el-table-column prop="description" label="描述" />
+        <el-table-column prop="account_count" label="账号数量" width="120" />
+        <el-table-column prop="created_at" label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="primary" @click="viewAccounts(row)">查看账号</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- Create/Edit Dialog -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="500px"
+    >
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
+        <el-form-item label="项目名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入项目名称" maxlength="100" show-word-limit />
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入项目描述（可选）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import { getProjects, createProject, updateProject, deleteProject } from '@/api/projects'
+
+const router = useRouter()
+const projects = ref([])
+const loading = ref(false)
+const dialogVisible = ref(false)
+const submitting = ref(false)
+const formRef = ref(null)
+const editingId = ref(null)
+
+const form = ref({
+  name: '',
+  description: ''
+})
+
+const rules = {
+  name: [
+    { required: true, message: '请输入项目名称', trigger: 'blur' },
+    { max: 100, message: '项目名称不能超过100个字符', trigger: 'blur' }
+  ]
+}
+
+const dialogTitle = computed(() => {
+  return editingId.value ? '编辑项目' : '新建项目'
+})
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+const loadProjects = async () => {
+  loading.value = true
+  try {
+    projects.value = await getProjects()
+  } catch (error) {
+    console.error('Failed to load projects:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleCreate = () => {
+  editingId.value = null
+  form.value = {
+    name: '',
+    description: ''
+  }
+  dialogVisible.value = true
+}
+
+const handleEdit = (row) => {
+  editingId.value = row.id
+  form.value = {
+    name: row.name,
+    description: row.description || ''
+  }
+  dialogVisible.value = true
+}
+
+const handleSubmit = async () => {
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  submitting.value = true
+  try {
+    if (editingId.value) {
+      await updateProject(editingId.value, form.value)
+      ElMessage.success('项目更新成功')
+    } else {
+      await createProject(form.value)
+      ElMessage.success('项目创建成功')
+    }
+    dialogVisible.value = false
+    loadProjects()
+  } catch (error) {
+    console.error('Failed to submit project:', error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+const handleDelete = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除项目"${row.name}"吗？${row.account_count > 0 ? '该项目下还有账号，无法删除。' : ''}`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await deleteProject(row.id)
+    ElMessage.success('项目删除成功')
+    loadProjects()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('Failed to delete project:', error)
+    }
+  }
+}
+
+const viewAccounts = (row) => {
+  router.push({
+    path: '/accounts',
+    query: { project_id: row.id }
+  })
+}
+
+onMounted(() => {
+  loadProjects()
+})
+</script>
+
+<style scoped>
+.project-list {
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>
