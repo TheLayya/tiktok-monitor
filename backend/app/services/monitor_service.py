@@ -350,22 +350,8 @@ def update_settings(db: Session, data: SettingsUpdate) -> MonitorSettings:
 def register_scheduler_jobs(scheduler, db_factory: Callable) -> None:
     """注册 APScheduler 定时任务：每分钟执行一次 run_scheduled_checks。"""
 
-    def _job():
-        """同步包装器：在新事件循环中执行异步批量检查。"""
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(run_scheduled_checks(db_factory))
-            else:
-                loop.run_until_complete(run_scheduled_checks(db_factory))
-        except RuntimeError:
-            # 如果没有事件循环，创建一个新的
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            try:
-                new_loop.run_until_complete(run_scheduled_checks(db_factory))
-            finally:
-                new_loop.close()
+    async def _job():
+        await run_scheduled_checks(db_factory)
 
     scheduler.add_job(
         _job,

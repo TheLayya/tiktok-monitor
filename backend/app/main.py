@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.database import engine, Base
-from app.core.scheduler import start_scheduler, stop_scheduler
+from app.core.scheduler import start_scheduler, stop_scheduler, scheduler
+from app.core.database import SessionLocal
 from app.api import projects, accounts, history, proxies, videos, settings, import_export
 import logging
 
@@ -13,6 +14,9 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     # 启动时创建数据库表
     Base.metadata.create_all(bind=engine)
+    # 注册并启动定时监控任务
+    from app.services.monitor_service import register_scheduler_jobs
+    register_scheduler_jobs(scheduler, SessionLocal)
     start_scheduler()
     yield
     stop_scheduler()

@@ -366,12 +366,15 @@ const formatNumber = (num) => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN')
+  // 后端返回 UTC 时间，加 Z 后缀让浏览器正确转换为本地时间
+  const s = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z'
+  return new Date(s).toLocaleString('zh-CN')
 }
 
 const formatShortDate = (dateStr) => {
   if (!dateStr) return '-'
-  const date = new Date(dateStr)
+  const s = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z'
+  const date = new Date(s)
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
