@@ -121,10 +121,10 @@ const form = ref({
   nickname: '',
   tiktok_id: '',
   sec_uid: '',
-  monitor_interval: 240,  // 4 hours in minutes
-  use_proxy: true,  // 默认开启代理
+  monitor_interval: 60,  // 60 minutes = 1 hour
+  use_proxy: true,
   proxy_id: null,
-  enable_video_monitoring: true,  // 默认开启视频监控
+  enable_video_monitoring: true,
   is_active: true
 })
 
@@ -157,10 +157,10 @@ const resetForm = () => {
     nickname: '',
     tiktok_id: '',
     sec_uid: '',
-    monitor_interval: 240,
-    use_proxy: true,  // 默认开启代理
+    monitor_interval: 60,
+    use_proxy: true,
     proxy_id: null,
-    enable_video_monitoring: true,  // 默认开启视频监控
+    enable_video_monitoring: true,
     is_active: true
   }
   formRef.value?.clearValidate()

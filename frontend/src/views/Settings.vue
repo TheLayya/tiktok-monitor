@@ -121,7 +121,7 @@ const submitting = ref(false)
 const formRef = ref(null)
 
 const form = ref({
-  default_interval: 240,  // 4 hours in minutes
+  default_interval: 60,  // 60 minutes = 1 hour (matches backend default 3600s)
   max_concurrent_checks: 5,
   request_timeout: 30,
   default_video_count: 20,
