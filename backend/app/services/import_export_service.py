@@ -100,13 +100,30 @@ def _format_value(account: MonitorAccount, field: str) -> str:
 
 
 def export_accounts_csv(db: Session, project_id: Optional[int] = None) -> str:
-    """导出账号列表为 CSV 字符串。"""
+    """导出账号列表为 CSV 字符串，包含24小时对比数据。"""
     accounts = _get_export_accounts(db, project_id)
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=_EXPORT_FIELDS)
     writer.writeheader()
     for acc in accounts:
-        writer.writerow({f: _format_value(acc, f) for f in _EXPORT_FIELDS})
+        data_24h_ago = _get_24h_ago_data(db, acc.id)
+        row = {}
+        for f in _EXPORT_FIELDS:
+            if f.endswith("_24h") and not f.endswith("_change_24h"):
+                field_name = f.replace("_24h", "")
+                row[f] = data_24h_ago.get(field_name, "") if data_24h_ago else "-"
+            elif f.endswith("_change_24h"):
+                field_name = f.replace("_change_24h", "")
+                current = getattr(acc, field_name, 0) or 0
+                if data_24h_ago:
+                    old = data_24h_ago.get(field_name, 0) or 0
+                    change = current - old
+                    row[f] = f"+{change}" if change > 0 else str(change)
+                else:
+                    row[f] = "-"
+            else:
+                row[f] = _format_value(acc, f)
+        writer.writerow(row)
     return output.getvalue()
 
 
@@ -280,12 +297,6 @@ async def import_accounts_from_text(
                 monitor_interval=monitor_interval,
             )
             account = create_account(db, data)
-            # 触发首次检查（异步，不等待结果）
-            try:
-                import asyncio
-                asyncio.ensure_future(check_account(db, account))
-            except RuntimeError:
-                pass
             results.append(BatchAccountResultItem(username=username, status="success"))
             success_count += 1
         except ValueError as e:

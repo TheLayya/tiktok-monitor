@@ -252,7 +252,8 @@ const dialogTitle = computed(() => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN')
+  const s = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z'
+  return new Date(s).toLocaleString('zh-CN')
 }
 
 const togglePasswordVisibility = (proxyId) => {
