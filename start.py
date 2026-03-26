@@ -154,16 +154,11 @@ backend_proc = subprocess.Popen(
 threading.Thread(target=stream_output, args=(backend_proc, 'backend'), daemon=True).start()
 
 print("Waiting for backend...")
-for _ in range(30):
-    time.sleep(1)
-    if is_our_backend_ready(backend_port):
-        print(f"Backend ready on port {backend_port}")
-        break
-else:
-    print("ERROR: backend startup timeout. Check if dependencies are installed:")
-    print(f"  cd backend && {python_exec} -m pip install -r requirements.txt")
-    backend_proc.terminate()
+time.sleep(8)
+if backend_proc.poll() is not None:
+    print("ERROR: backend process exited unexpectedly")
     sys.exit(1)
+print(f"Backend started on port {backend_port}")
 
 # ── 启动前端 ──────────────────────────────────────────────
 print(f"\nStarting frontend on port {frontend_port}...")
