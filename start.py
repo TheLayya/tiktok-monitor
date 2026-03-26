@@ -21,7 +21,6 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 
 
 def is_port_free(port: int) -> bool:
-    """检查端口是否完全空闲（没有任何进程监听）"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.bind(('', port))
@@ -37,21 +36,17 @@ def find_available_port(start_port: int, max_attempts: int = 10) -> int:
     return None
 
 
+def is_port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
+
 def is_our_backend_ready(port: int) -> bool:
-    """通过 /health 接口确认是我们的后端在运行"""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as resp:
             return resp.status == 200
     except Exception:
-        # fallback: 只要端口有响应就认为后端好了
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(2)
-            return s.connect_ex(('127.0.0.1', port)) == 0
-
-
-def is_port_in_use(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) == 0
+        return False
 
 
 def update_env_port(env_file: Path, new_port: int):
@@ -65,7 +60,6 @@ def update_env_port(env_file: Path, new_port: int):
 
 
 def update_env_frontend(env_file: Path, backend_port: int):
-    """更新前端 .env 里的 API 地址，确保 vite proxy 指向正确端口"""
     new_url = f'VITE_API_BASE_URL=http://localhost:{backend_port}'
     if env_file.exists():
         content = env_file.read_text(encoding='utf-8')
@@ -73,6 +67,17 @@ def update_env_frontend(env_file: Path, backend_port: int):
     else:
         content = new_url + '\n'
     env_file.write_text(content, encoding='utf-8')
+
+
+def get_python_executable() -> str:
+    """优先使用 backend/venv 里的 Python，确保依赖可用"""
+    venv_win = BACKEND_DIR / 'venv' / 'Scripts' / 'python.exe'
+    venv_unix = BACKEND_DIR / 'venv' / 'bin' / 'python'
+    if venv_win.exists():
+        return str(venv_win)
+    if venv_unix.exists():
+        return str(venv_unix)
+    return sys.executable
 
 
 def check_node():
@@ -116,7 +121,6 @@ if backend_port != 8000:
 if frontend_port != 5173:
     print(f"[warn] port 5173 in use, frontend -> {frontend_port}")
 
-# 写入 backend/.env 和 frontend/.env，确保 vite proxy 指向正确端口
 update_env_port(BACKEND_DIR / '.env', backend_port)
 update_env_frontend(FRONTEND_DIR / '.env', backend_port)
 
@@ -133,16 +137,17 @@ if not check_npm_deps():
         sys.exit(1)
     print("Frontend dependencies installed.")
 
-# ── 公共环境变量 ──────────────────────────────────────────
+# ── 启动后端 ──────────────────────────────────────────────
+python_exec = get_python_executable()
+print(f"\nStarting backend on port {backend_port}...")
+print(f"Using Python: {python_exec}")
+
 child_env = os.environ.copy()
 child_env['PYTHONIOENCODING'] = 'utf-8'
 child_env['PORT'] = str(backend_port)
 
-# ── 启动后端 ──────────────────────────────────────────────
-print(f"\nStarting backend on port {backend_port}...")
-
 backend_proc = subprocess.Popen(
-    [sys.executable, 'run.py'],
+    [python_exec, 'run.py'],
     cwd=BACKEND_DIR,
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
@@ -151,7 +156,6 @@ backend_proc = subprocess.Popen(
 
 threading.Thread(target=stream_output, args=(backend_proc, 'backend'), daemon=True).start()
 
-# 用 /health 接口确认后端就绪，避免误判其他进程占用的端口
 print("Waiting for backend...")
 for _ in range(30):
     time.sleep(1)
@@ -159,7 +163,8 @@ for _ in range(30):
         print(f"Backend ready on port {backend_port}")
         break
 else:
-    print("ERROR: backend startup timeout")
+    print("ERROR: backend startup timeout. Check if dependencies are installed:")
+    print(f"  cd backend && {python_exec} -m pip install -r requirements.txt")
     backend_proc.terminate()
     sys.exit(1)
 
