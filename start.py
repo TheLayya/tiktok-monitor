@@ -12,6 +12,7 @@ import os
 import time
 import threading
 import webbrowser
+import urllib.request
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -19,15 +20,30 @@ BACKEND_DIR = BASE_DIR / "backend"
 FRONTEND_DIR = BASE_DIR / "frontend"
 
 
+def is_port_free(port: int) -> bool:
+    """检查端口是否完全空闲（没有任何进程监听）"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('', port))
+            return True
+        except OSError:
+            return False
+
+
 def find_available_port(start_port: int, max_attempts: int = 10) -> int:
     for port in range(start_port, start_port + max_attempts):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(('', port))
-                return port
-            except OSError:
-                continue
+        if is_port_free(port):
+            return port
     return None
+
+
+def is_our_backend_ready(port: int) -> bool:
+    """通过 /health 接口确认是我们的后端在运行"""
+    try:
+        with urllib.request.urlopen(f"http://localhost:{port}/health", timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 def is_port_in_use(port: int) -> bool:
@@ -86,6 +102,7 @@ if backend_port != 8000:
 if frontend_port != 5173:
     print(f"[warn] port 5173 in use, frontend -> {frontend_port}")
 
+# 写入 backend/.env，vite.config.js 启动时会读取
 update_env_port(BACKEND_DIR / '.env', backend_port)
 
 # ── 检查 Node / npm 依赖 ──────────────────────────────────
@@ -101,7 +118,7 @@ if not check_npm_deps():
         sys.exit(1)
     print("Frontend dependencies installed.")
 
-# ── 公共环境变量（解决 Windows GBK 编码问题）────────────────
+# ── 公共环境变量 ──────────────────────────────────────────
 child_env = os.environ.copy()
 child_env['PYTHONIOENCODING'] = 'utf-8'
 child_env['PORT'] = str(backend_port)
@@ -119,10 +136,11 @@ backend_proc = subprocess.Popen(
 
 threading.Thread(target=stream_output, args=(backend_proc, 'backend'), daemon=True).start()
 
+# 用 /health 接口确认后端就绪，避免误判其他进程占用的端口
 print("Waiting for backend...")
 for _ in range(30):
     time.sleep(1)
-    if is_port_in_use(backend_port):
+    if is_our_backend_ready(backend_port):
         print(f"Backend ready on port {backend_port}")
         break
 else:
