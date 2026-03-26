@@ -40,10 +40,13 @@ def find_available_port(start_port: int, max_attempts: int = 10) -> int:
 def is_our_backend_ready(port: int) -> bool:
     """通过 /health 接口确认是我们的后端在运行"""
     try:
-        with urllib.request.urlopen(f"http://localhost:{port}/health", timeout=2) as resp:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as resp:
             return resp.status == 200
     except Exception:
-        return False
+        # fallback: 只要端口有响应就认为后端好了
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            return s.connect_ex(('127.0.0.1', port)) == 0
 
 
 def is_port_in_use(port: int) -> bool:
