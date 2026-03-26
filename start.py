@@ -12,7 +12,6 @@ import os
 import time
 import threading
 import webbrowser
-import urllib.request
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -42,11 +41,9 @@ def is_port_in_use(port: int) -> bool:
 
 
 def is_our_backend_ready(port: int) -> bool:
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as resp:
-            return resp.status == 200
-    except Exception:
-        return False
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1)
+        return s.connect_ex(('127.0.0.1', port)) == 0
 
 
 def update_env_port(env_file: Path, new_port: int):
