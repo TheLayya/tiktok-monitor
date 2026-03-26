@@ -89,9 +89,10 @@ def check_npm_deps():
     return (FRONTEND_DIR / 'node_modules').exists()
 
 
-def stream_output(proc, prefix):
+def stream_output(proc, prefix, use_stderr=False):
     try:
-        for line in iter(proc.stdout.readline, b''):
+        stream = proc.stderr if use_stderr else proc.stdout
+        for line in iter(stream.readline, b''):
             text = line.decode('utf-8', errors='replace').rstrip()
             if text:
                 print(f"[{prefix}] {text}", flush=True)
@@ -147,11 +148,12 @@ backend_proc = subprocess.Popen(
     [python_exec, 'run.py'],
     cwd=BACKEND_DIR,
     stdout=subprocess.PIPE,
-    stderr=subprocess.STDOUT,
+    stderr=subprocess.PIPE,
     env=child_env
 )
 
 threading.Thread(target=stream_output, args=(backend_proc, 'backend'), daemon=True).start()
+threading.Thread(target=stream_output, args=(backend_proc, 'backend-err', True), daemon=True).start()
 
 print("Waiting for backend...")
 time.sleep(8)
