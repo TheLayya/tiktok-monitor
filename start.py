@@ -64,6 +64,17 @@ def update_env_port(env_file: Path, new_port: int):
         env_file.write_text(content, encoding='utf-8')
 
 
+def update_env_frontend(env_file: Path, backend_port: int):
+    """更新前端 .env 里的 API 地址，确保 vite proxy 指向正确端口"""
+    new_url = f'VITE_API_BASE_URL=http://localhost:{backend_port}'
+    if env_file.exists():
+        content = env_file.read_text(encoding='utf-8')
+        content = re.sub(r'^VITE_API_BASE_URL=.*', new_url, content, flags=re.MULTILINE)
+    else:
+        content = new_url + '\n'
+    env_file.write_text(content, encoding='utf-8')
+
+
 def check_node():
     try:
         subprocess.run(['node', '--version'], capture_output=True, check=True, shell=True)
@@ -105,8 +116,9 @@ if backend_port != 8000:
 if frontend_port != 5173:
     print(f"[warn] port 5173 in use, frontend -> {frontend_port}")
 
-# 写入 backend/.env，vite.config.js 启动时会读取
+# 写入 backend/.env 和 frontend/.env，确保 vite proxy 指向正确端口
 update_env_port(BACKEND_DIR / '.env', backend_port)
+update_env_frontend(FRONTEND_DIR / '.env', backend_port)
 
 # ── 检查 Node / npm 依赖 ──────────────────────────────────
 if not check_node():

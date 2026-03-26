@@ -3,8 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, path.resolve(__dirname, '../backend'), '')
-  const backendPort = env.PORT || '8000'
+  const env = loadEnv(mode, process.cwd(), '')
+  const backendUrl = env.VITE_API_BASE_URL || 'http://localhost:8000'
 
   return {
     plugins: [vue()],
@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: `http://localhost:${backendPort}`,
+          target: backendUrl,
           changeOrigin: true
         }
       }
