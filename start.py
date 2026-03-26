@@ -57,7 +57,7 @@ def update_env_port(env_file: Path, new_port: int):
 
 
 def update_env_frontend(env_file: Path, backend_port: int):
-    new_url = f'VITE_API_BASE_URL=http://localhost:{backend_port}'
+    new_url = f'VITE_API_BASE_URL=http://127.0.0.1:{backend_port}'
     if env_file.exists():
         content = env_file.read_text(encoding='utf-8')
         content = re.sub(r'^VITE_API_BASE_URL=.*', new_url, content, flags=re.MULTILINE)
