@@ -149,7 +149,7 @@
           <el-table-column prop="title" label="短题" show-overflow-tooltip min-width="200" />
           <el-table-column prop="published_at" label="发布时间" width="180">
             <template #default="{ row }">
-              {{ formatDate(row.published_at) }}
+              {{ formatPublishDate(row.published_at) }}
             </template>
           </el-table-column>
           <el-table-column prop="play_count" label="播放数" width="120">
@@ -227,8 +227,15 @@ const formatNumber = (num) => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '-'
+  // 后端存储 UTC 时间，加 Z 转为本地时间显示
   const s = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z'
   return new Date(s).toLocaleString('zh-CN')
+}
+
+// 视频发布时间：TikTok 时间戳已含时区，直接显示不做转换
+const formatPublishDate = (dateStr) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
 }
 
 const goBack = () => {

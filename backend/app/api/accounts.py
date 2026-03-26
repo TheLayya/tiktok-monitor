@@ -12,6 +12,7 @@ from app.schemas.account import (
     AccountCreate,
     AccountUpdate,
     AccountResponse,
+    AccountListResponse,
     BatchAccountCreate,
     BatchAccountResult,
     BatchAccountResultItem,
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 
-@router.get("", response_model=List[AccountResponse])
+@router.get("")
 def get_accounts(
     project_id: Optional[int] = Query(None),
     keyword: Optional[str] = Query(None),
@@ -33,15 +34,8 @@ def get_accounts(
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    """
-    Get paginated list of monitor accounts with filters.
-    
-    **Validates: Requirements 1.1**
-    
-    - Supports filtering by project_id, keyword (username/nickname), and is_active status
-    - Returns paginated results with skip/limit
-    """
     try:
+        total = monitor_service.count_accounts(db, project_id=project_id, keyword=keyword, is_active=is_active)
         accounts = monitor_service.get_accounts(
             db,
             project_id=project_id,
@@ -51,14 +45,13 @@ def get_accounts(
             limit=limit,
         )
         
-        # Add project_name to each account
         result = []
         for account in accounts:
             account_dict = AccountResponse.model_validate(account).model_dump()
             account_dict['project_name'] = account.project.name if account.project else None
             result.append(account_dict)
         
-        return result
+        return {"items": result, "total": total}
     except Exception as e:
         logger.error(f"Failed to get accounts: {e}")
         raise HTTPException(
@@ -269,6 +262,19 @@ def batch_import_accounts(data: BatchAccountCreate, db: Session = Depends(get_db
         failed_count = 0
         
         for username in usernames:
+            # 检测是否误输入了代理格式 ip:port 或 ip:port:user:pass
+            parts = username.split(":")
+            if len(parts) >= 2 and parts[0].replace(".", "").isdigit():
+                results.append(
+                    BatchAccountResultItem(
+                        username=username,
+                        status="failed",
+                        reason="检测到代理格式，请在「代理管理」页面添加代理，此处只需填写 TikTok 用户名",
+                    )
+                )
+                failed_count += 1
+                continue
+
             # Validate username format (no spaces or special characters)
             if " " in username or not username.replace("_", "").replace(".", "").isalnum():
                 results.append(

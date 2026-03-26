@@ -80,3 +80,8 @@ class BatchActionRequest(BaseModel):
     account_ids: List[int]
     action: str  # "enable", "disable", "delete", "move"
     target_project_id: Optional[int] = None
+
+
+class AccountListResponse(BaseModel):
+    items: List[AccountResponse]
+    total: int

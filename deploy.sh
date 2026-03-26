@@ -53,13 +53,13 @@ docker-compose up -d
 
 echo ""
 echo "⏳ Waiting for services to be ready..."
-sleep 10
+sleep 45
 
-# Check if services are running
-BACKEND_STATUS=$(docker-compose ps backend | grep -c "Up" || echo "0")
-FRONTEND_STATUS=$(docker-compose ps frontend | grep -c "Up" || echo "0")
+# Check if services are running (compatible with both docker-compose v1 and v2)
+BACKEND_STATUS=$(docker-compose ps backend | grep -cE "Up|running" || echo "0")
+FRONTEND_STATUS=$(docker-compose ps frontend | grep -cE "Up|running" || echo "0")
 
-if [ "$BACKEND_STATUS" -eq "1" ] && [ "$FRONTEND_STATUS" -eq "1" ]; then
+if [ "$BACKEND_STATUS" -ge "1" ] && [ "$FRONTEND_STATUS" -ge "1" ]; then
     echo ""
     echo "✅ Deployment successful!"
     echo ""

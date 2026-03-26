@@ -39,6 +39,26 @@ def get_accounts(
     return query.offset(skip).limit(limit).all()
 
 
+def count_accounts(
+    db: Session,
+    project_id: Optional[int] = None,
+    keyword: Optional[str] = None,
+    is_active: Optional[bool] = None,
+) -> int:
+    query = db.query(MonitorAccount)
+    if project_id is not None:
+        query = query.filter(MonitorAccount.project_id == project_id)
+    if keyword:
+        like = f"%{keyword}%"
+        query = query.filter(
+            MonitorAccount.username.ilike(like)
+            | MonitorAccount.nickname.ilike(like)
+        )
+    if is_active is not None:
+        query = query.filter(MonitorAccount.is_active == is_active)
+    return query.count()
+
+
 def get_account(db: Session, account_id: int) -> Optional[MonitorAccount]:
     return db.query(MonitorAccount).filter(MonitorAccount.id == account_id).first()
 
@@ -80,26 +100,29 @@ def create_account(db: Session, data: AccountCreate) -> MonitorAccount:
 
     # 触发首次检查（在后台线程中执行，不阻塞响应）
     import threading
-    
+    account_id = account.id  # 只传 id，不传 ORM 对象
+
     def _trigger_first_check():
-        """在新线程中触发首次检查"""
         from app.core.database import SessionLocal
         check_db = SessionLocal()
         try:
-            # 创建新的事件循环
             import asyncio
+            # 从新 Session 重新加载 account，避免 DetachedInstanceError
+            fresh_account = check_db.query(MonitorAccount).filter(MonitorAccount.id == account_id).first()
+            if not fresh_account:
+                return
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(check_account(check_db, account))
-                logger.info(f"First check completed for account {account.username}")
+                loop.run_until_complete(check_account(check_db, fresh_account))
+                logger.info(f"First check completed for account id={account_id}")
             finally:
                 loop.close()
         except Exception as e:
-            logger.error(f"Failed to trigger first check for account {account.username}: {e}")
+            logger.error(f"Failed to trigger first check for account id={account_id}: {e}")
         finally:
             check_db.close()
-    
+
     thread = threading.Thread(target=_trigger_first_check, daemon=True)
     thread.start()
 
@@ -205,7 +228,7 @@ async def check_account(db: Session, account: MonitorAccount) -> MonitorHistory:
                                 like_count=video_info.get("like_count", 0),
                                 comment_count=video_info.get("comment_count", 0),
                                 share_count=video_info.get("share_count", 0),
-                                published_at=datetime.fromtimestamp(video_info["published_at"]) if video_info.get("published_at") else None
+                                published_at=datetime.utcfromtimestamp(video_info["published_at"]) if video_info.get("published_at") else None
                             )
                             db.add(new_video)
                 else:

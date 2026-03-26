@@ -22,7 +22,7 @@
           v-model="form.usernames"
           type="textarea"
           :rows="10"
-          placeholder="每行一个用户名，例如：&#10;user1&#10;user2&#10;user3"
+          placeholder="每行一个 TikTok 用户名，例如：&#10;username1&#10;username2&#10;&#10;注意：此处只填用户名，代理请在「代理管理」页面添加"
         />
         <div class="hint">每行输入一个 TikTok 用户名，系统会自动去除空行和首尾空格</div>
       </el-form-item>
@@ -137,7 +137,7 @@ const handleSubmit = async () => {
     const data = {
       project_id: form.value.project_id,
       usernames: form.value.usernames,
-      monitor_interval: form.value.monitor_interval
+      monitor_interval: form.value.monitor_interval ? form.value.monitor_interval * 60 : null
     }
 
     const result = await batchImportAccounts(data)

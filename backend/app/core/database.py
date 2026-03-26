@@ -1,6 +1,14 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
+
+# 确保数据目录存在（SQLite 场景）
+if settings.DATABASE_URL.startswith("sqlite"):
+    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
 # 增加连接池大小以支持高并发检查（支持并发50+）
 engine = create_engine(

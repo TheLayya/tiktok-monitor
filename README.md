@@ -33,17 +33,40 @@
 
 #### 一键部署
 
+**Linux/Mac：**
+
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/tiktok-monitor.git
+git clone https://github.com/TheLayya/tiktok-monitor.git
 cd tiktok-monitor
 
-# 使用部署脚本（推荐）
+# 使用部署脚本（自动构建、启动并检查服务状态）
 chmod +x deploy.sh
 ./deploy.sh
+```
 
-# 或手动启动
+**Windows：**
+
+```powershell
+# 克隆项目
+git clone https://github.com/TheLayya/tiktok-monitor.git
+cd tiktok-monitor
+
+# 启动服务
+docker-compose up -d --build
+
+# 查看日志
+docker-compose logs -f
+```
+
+或者手动执行（所有平台通用）：
+
+```bash
+# 启动服务
 docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
 ```
 
 服务启动后访问：
@@ -62,17 +85,53 @@ docker-compose down -v
 
 ### 方式二：本地开发
 
-#### 后端启动
+#### 一键启动（推荐）
 
 ```bash
+cd tiktok-monitor
+
+# 创建并激活后端虚拟环境（首次运行）
 cd backend
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+# source venv/bin/activate
+
+pip install -r requirements.txt
+cd ..
+
+# 一键启动前后端
+python start.py
+```
+
+脚本会自动：
+- 检测端口占用，自动切换可用端口
+- 检查并安装前端依赖
+- 同时启动前端和后端
+- 启动完成后自动打开浏览器
+- `Ctrl+C` 同时停止所有服务
+
+#### 手动分开启动
+
+```bash
+cd tiktok-monitor/backend
 
 # 创建虚拟环境
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Windows 激活虚拟环境
+venv\Scripts\activate
+# Linux/Mac 激活虚拟环境
+# source venv/bin/activate
 
 # 安装依赖
 pip install -r requirements.txt
+
+# 复制环境变量配置
+copy .env.example .env  # Windows
+# cp .env.example .env  # Linux/Mac
 
 # 初始化数据库
 alembic upgrade head
@@ -86,10 +145,14 @@ python run.py
 #### 前端启动
 
 ```bash
-cd frontend
+cd tiktok-monitor/frontend
 
 # 安装依赖
 npm install
+
+# 复制环境变量配置
+copy .env.example .env  # Windows
+# cp .env.example .env  # Linux/Mac
 
 # 启动开发服务器
 npm run dev
@@ -103,11 +166,12 @@ npm run dev
 
 **备份数据**：
 ```bash
-# 备份数据库
-cp -r ./data ./data_backup_$(date +%Y%m%d)
+# Windows 备份数据库
+xcopy /E /I data data_backup_%date:~0,4%%date:~5,2%%date:~8,2%
 
-# 或使用 tar 打包
-tar -czf data_backup_$(date +%Y%m%d).tar.gz ./data
+# Linux/Mac 备份数据库
+# cp -r ./data ./data_backup_$(date +%Y%m%d)
+# tar -czf data_backup_$(date +%Y%m%d).tar.gz ./data
 ```
 
 ## ⚙️ 配置说明
@@ -123,7 +187,7 @@ DATABASE_URL=sqlite:///./data/monitor.db
 # 服务配置
 HOST=0.0.0.0
 PORT=8000
-DEBUG=false
+DEBUG=true
 ```
 
 **前端配置** (`frontend/.env`)：
@@ -141,7 +205,7 @@ VITE_API_BASE_URL=http://localhost:8000
 services:
   backend:
     environment:
-      - DATABASE_URL=sqlite:////app/data/tiktok_monitor.db
+      - DATABASE_URL=sqlite:////app/data/monitor.db
       - HOST=0.0.0.0
       - PORT=8000
     ports:
@@ -314,7 +378,7 @@ tiktok-monitor/
 ### 数据库迁移
 
 ```bash
-cd backend
+cd tiktok-monitor/backend
 
 # 创建新迁移
 alembic revision --autogenerate -m "description"
@@ -329,7 +393,7 @@ alembic downgrade -1
 ### 前端构建
 
 ```bash
-cd frontend
+cd tiktok-monitor/frontend
 
 # 开发构建
 npm run dev
@@ -342,6 +406,43 @@ npm run preview
 ```
 
 ## 🐛 故障排查
+
+### 端口被占用
+
+**查找占用进程：**
+
+```powershell
+# Windows - 查看 8000 端口占用
+netstat -ano | findstr :8000
+
+# 根据 PID 结束进程（替换 <PID> 为实际进程号）
+taskkill /PID <PID> /F
+```
+
+```bash
+# Linux/Mac
+lsof -i :8000
+kill -9 <PID>
+```
+
+**或者修改端口（推荐）：**
+
+1. 修改 `backend/.env`：
+```bash
+PORT=8001
+```
+
+2. 修改 `frontend/vite.config.js` 中的 proxy target：
+```js
+proxy: {
+  '/api': {
+    target: 'http://localhost:8001',  // 改成新端口
+    changeOrigin: true
+  }
+}
+```
+
+前端端口 5173 被占用时，Vite 会自动尝试下一个可用端口，终端会提示实际地址。
 
 ### 服务无法启动
 
@@ -401,9 +502,13 @@ exit
 # 停止服务
 docker-compose down
 
-# 恢复备份
-rm -rf ./data
-cp -r ./data_backup ./data
+# Windows 恢复备份
+rmdir /S /Q data
+xcopy /E /I data_backup data
+
+# Linux/Mac 恢复备份
+# rm -rf ./data
+# cp -r ./data_backup ./data
 
 # 重启服务
 docker-compose up -d

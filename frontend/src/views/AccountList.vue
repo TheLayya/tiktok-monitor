@@ -399,9 +399,8 @@ const loadAccounts = async (renderCharts = true) => {
     if (filters.value.is_active !== null) params.is_active = filters.value.is_active
 
     const data = await getAccounts(params)
-    accounts.value = data
-    // Note: Backend should return total count, for now use length
-    pagination.value.total = data.length
+    accounts.value = data.items || data
+    pagination.value.total = data.total ?? data.length
     
     // Render charts only when explicitly requested (not during polling)
     if (renderCharts) {
@@ -840,8 +839,6 @@ onMounted(() => {
   width: 130px;
   height: 35px;
 }
-</style>
-
 
 .progress-content {
   padding: 20px 0;
@@ -867,3 +864,4 @@ onMounted(() => {
   border-radius: 4px;
   text-align: center;
 }
+</style>
