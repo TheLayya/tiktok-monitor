@@ -20,12 +20,19 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 
 
 def is_port_free(port: int) -> bool:
+    """检查端口在所有地址上都没有被占用"""
+    for host in ('', '127.0.0.1', '0.0.0.0'):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((host, port))
+            except OSError:
+                return False
+    # 也检查是否有进程在监听
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind(('', port))
-            return True
-        except OSError:
+        s.settimeout(0.1)
+        if s.connect_ex(('127.0.0.1', port)) == 0:
             return False
+    return True
 
 
 def find_available_port(start_port: int, max_attempts: int = 10) -> int:
