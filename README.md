@@ -90,7 +90,7 @@ docker-compose down -v
 ```bash
 cd tiktok-monitor
 
-# 创建并激活后端虚拟环境（首次运行）
+# 首次运行：创建并激活后端虚拟环境
 cd backend
 python -m venv venv
 
@@ -99,10 +99,15 @@ venv\Scripts\activate
 # Linux/Mac
 # source venv/bin/activate
 
+# 安装后端依赖
 pip install -r requirements.txt
+
+# 初始化数据库（首次运行必须执行）
+alembic upgrade head
+
 cd ..
 
-# 一键启动前后端
+# 一键启动前后端（需在虚拟环境激活状态下运行）
 python start.py
 ```
 
