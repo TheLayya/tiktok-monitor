@@ -74,14 +74,36 @@ def update_env_frontend(env_file: Path, backend_port: int):
 
 
 def get_python_executable() -> str:
-    """优先使用 backend/venv 里的 Python，确保依赖可用"""
+    """优先使用完整的系统 Python（conda），避免 venv 精简版缺少 SSL 等模块"""
+    # 1. 优先用运行 start.py 的当前 Python（通常是 conda，功能完整）
+    current = sys.executable
+    # 检查当前 Python 是否有 ssl
+    try:
+        result = subprocess.run(
+            [current, '-c', 'import ssl'],
+            capture_output=True, timeout=5
+        )
+        if result.returncode == 0:
+            return current
+    except Exception:
+        pass
+
+    # 2. 尝试 backend/venv
     venv_win = BACKEND_DIR / 'venv' / 'Scripts' / 'python.exe'
     venv_unix = BACKEND_DIR / 'venv' / 'bin' / 'python'
-    if venv_win.exists():
-        return str(venv_win)
-    if venv_unix.exists():
-        return str(venv_unix)
-    return sys.executable
+    for venv_py in [venv_win, venv_unix]:
+        if venv_py.exists():
+            try:
+                result = subprocess.run(
+                    [str(venv_py), '-c', 'import ssl'],
+                    capture_output=True, timeout=5
+                )
+                if result.returncode == 0:
+                    return str(venv_py)
+            except Exception:
+                pass
+
+    return current
 
 
 def check_node():
@@ -129,6 +151,22 @@ if frontend_port != 5173:
 update_env_port(BACKEND_DIR / '.env', backend_port)
 update_env_frontend(FRONTEND_DIR / '.env', backend_port)
 
+# ── 检查后端依赖 ──────────────────────────────────────────
+python_exec = get_python_executable()
+print(f"Using Python: {python_exec}")
+
+result = subprocess.run(
+    [python_exec, '-c', 'import uvicorn, fastapi, sqlalchemy'],
+    capture_output=True
+)
+if result.returncode != 0:
+    print("Installing backend dependencies...")
+    subprocess.run(
+        [python_exec, '-m', 'pip', 'install', '-r', str(BACKEND_DIR / 'requirements.txt')],
+        check=True
+    )
+    print("Backend dependencies installed.")
+
 # ── 检查 Node / npm 依赖 ──────────────────────────────────
 if not check_node():
     print("ERROR: Node.js not found. Install from https://nodejs.org/")
@@ -143,9 +181,7 @@ if not check_npm_deps():
     print("Frontend dependencies installed.")
 
 # ── 启动后端 ──────────────────────────────────────────────
-python_exec = get_python_executable()
 print(f"\nStarting backend on port {backend_port}...")
-print(f"Using Python: {python_exec}")
 
 child_env = os.environ.copy()
 child_env['PYTHONIOENCODING'] = 'utf-8'
